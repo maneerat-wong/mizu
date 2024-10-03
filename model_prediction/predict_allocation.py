@@ -1,10 +1,9 @@
-from get_data import get_historical_water_from_all_station
-from train_data import map_reservior_to_code, construct_features, read_historical_water_data
+from model_prediction.get_data import get_historical_water_from_all_station
+from model_prediction.train_data import map_reservior_to_code, construct_features, read_historical_water_data
 
 import pandas as pd
 import xgboost as xgb
 import datetime
-
 
 
 model_filename = 'predict_allocation.model'

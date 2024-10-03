@@ -3,10 +3,6 @@ from bs4 import BeautifulSoup
 import json
 import pandas as pd
 
-class MyDict(dict):
-    def __missing__(self, key):
-        return key
-
 #site to get updated data
 CDEC_API_URL = "https://cdec.water.ca.gov/dynamicapp/req/JSONDataServlet"
 SWE_URL = "https://cdec.water.ca.gov/snowapp/sweqdate.action"
