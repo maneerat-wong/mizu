@@ -1,12 +1,14 @@
 import requests
-from bs4 import BeautifulSoup
 import json
 import pandas as pd
+import datetime
 
 #site to get updated data
 CDEC_API_URL = "https://cdec.water.ca.gov/dynamicapp/req/JSONDataServlet"
 SWE_URL = "https://cdec.water.ca.gov/snowapp/sweqdate.action"
 
+TRAINING_DATA_START_DATE='1988-6-1'
+TRAINING_DATA_END_DATE='2024-05-30'
 
 def get_json_from_cdec(station_code, start_date, end_date, dur_code, sensor_num = 15):
     """Get the water data in AF for each reservoir from cdec website
@@ -32,52 +34,27 @@ def get_json_from_cdec(station_code, start_date, end_date, dur_code, sensor_num 
 
 
 #Gat Training data from all station in station_code.csv
-def get_historical_water_from_all_station(dur_code='D', station_code_file='station_code.csv', start_date='1988-6-1', end_date='2024-05-30', filename = 'all_station_historical_water.json'):
+def get_historical_water_from_all_station(dur_code='D', station_code_file='station_code.csv', filename = 'all_station_historical_water.json'):
     station = pd.read_csv(station_code_file)
     all_water_data = []
     for code in station['Station Code']:
-        all_water_data += get_json_from_cdec(code, start_date, end_date, dur_code=dur_code)
+        all_water_data += get_json_from_cdec(code, TRAINING_DATA_START_DATE, TRAINING_DATA_END_DATE, dur_code=dur_code)
     
     with open(filename, 'w', encoding='utf-8') as f:
         json.dump(all_water_data, f, ensure_ascii=False)
 
 
-#This specific data doesn't have the data before 2001
-def get_swe_data(query_date):
+def get_swe_training_data(dur_code='D', sensor_num=3, station_code_file='swe_stations.csv'):
     """Get the Snow Water Equivalent for three regions (North, Central, South)
 
     Args:
-        query_date (String): query date in the format of DD-MM-YYYY but MM in Month name e.g. Jun
-
-    Returns:
-        SWE for three regions in json 
+        sensor_num (int): sensor number for snow water content
     """
+    swe_stations = pd.read_csv(station_code_file)
+    for _, row in swe_stations.iterrows():
+        swe_json = get_json_from_cdec(row['Stations'], TRAINING_DATA_START_DATE, TRAINING_DATA_END_DATE, dur_code, sensor_num)
+        with open(f'{row['SWE Region']}_training_data_swe.json', 'w', encoding='utf-8') as f:
+            json.dump(swe_json, f, ensure_ascii=False)
 
-    swe_data = {"date":query_date}
-
-    payload = {'querydate':query_date}
-    response = requests.request("GET", SWE_URL, params=payload)
-    webpage = response.text
-    soup = BeautifulSoup(webpage, features="lxml")
-    mydivs = soup.findAll("div", {"class":"block_with_rounded_corners"})
-    for div in mydivs:
-        region = div.find("h3")
-        trs = div.findAll("tr")
-        for tr in trs:
-            tds = tr.findAll("td")
-            key_value = [td.text for td in tds]
-            if 'snow water equivalent' in key_value[0]: 
-                swe_data[region.text] = key_value[1]
-
-    return swe_data
-
-
-def get_most_recent_swe(json_filename='swe_from_1990.json'):
-    data = []
-    for d in pd.date_range(datetime.date(2000,1,1), datetime.date.today()):
-        data.append(get_swe_data(d.strftime('%d-%b-%Y')))
-    with open(json_filename, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
-    
 
 
