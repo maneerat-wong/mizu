@@ -1,6 +1,6 @@
 streamlit==1.24.1
 pandas>2.0
 numpy
-sklearn
+scikit-learn
 xgboost
 bs4
