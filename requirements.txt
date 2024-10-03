@@ -1,5 +1,5 @@
-streamlit==1.24.1
-pandas>2.0
+streamlit
+pandas
 numpy
 scikit-learn
 xgboost
