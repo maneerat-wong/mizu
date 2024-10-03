@@ -19,6 +19,6 @@ clicked = st.button("Run the model")
 if clicked:
     if option != 'All':
         allocation = y[y['District'] == option]['Water Allocation'].values[0]
-        st.subheader(f"The estimiated allocation is {"%.2f" % allocation} AF/A")
+        st.subheader(f"The estimated allocation is {"%.2f" % allocation} AF/A")
     else:
         st.dataframe(y, hide_index=True)
