@@ -1,5 +1,5 @@
 from model_prediction.get_data import get_historical_water_from_all_station
-from model_prediction.train_data import map_reservior_to_code, construct_features, read_historical_water_data
+from model_prediction.train_data import map_reservior_to_code, construct_features, read_cdec_data
 
 import pandas as pd
 import xgboost as xgb
@@ -26,7 +26,7 @@ def prep_new_data():
     district_map['Res_Code'] = district_map.apply(lambda row: map_reservior_to_code(row['Reservoir'], station_mapping), axis=1)
     district_code_mapping = dict(zip(district_map['Irrigation District'], district_map['Res_Code']))
 
-    current_water_data = read_historical_water_data(current_data_filename)
+    current_water_data = read_cdec_data(current_data_filename)
     df_water_temp = pd.DataFrame()
     for k,v in district_code_mapping.items():
         res = v.split(',')

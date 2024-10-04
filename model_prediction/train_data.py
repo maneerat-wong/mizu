@@ -10,10 +10,11 @@ from sklearn.model_selection import RandomizedSearchCV
 from sklearn.metrics import r2_score
 
 MODEL_FILENAME = 'predict_allocation.model'
-HISTORICAL_DAILY_FILE = 'all_station_historical_water.json'
-HISTORICAL_MONTHLY_FILE = 'all_station_historical_water_M.json'
+HISTORICAL_DAILY_WATER_FILE = 'all_station_historical_water.json'
+HISTORICAL_MONTHLY_WATER_FILE = 'all_station_historical_water_M.json'
+HITORICAL_SWE_FILE = 'training_data_swe.json'
 
-def read_historical_water_data(train_file, cutting_off_month=6):
+def read_cdec_data(train_file, cutting_off_month=6):
     with open(train_file, 'r') as file:
         cdec_data = json.load(file)
     df = pd.json_normalize(cdec_data)
@@ -60,19 +61,43 @@ def construct_features(district, resorvoir_list, df_water):
 
     yearly = yearly.rename(columns={'month':'no_months',
                            'value_count':'total_no_days_available',
-                           'stationId':'no_reservior'})
+                           'stationId':'no_stations'})
     yearly['change_in_a_year_mean'] = yearly['value_mean'].diff().fillna(0)
     yearly['change_in_a_year_min'] = yearly['value_min'].diff().fillna(0)
     yearly['change_in_a_year_max'] = yearly['value_max'].diff().fillna(0)
     yearly['District'] = district
     return yearly
 
-
 #Problem #1: CFW Daily info doesn't have the data before 2021, therefore, will use the monthly data for the missing one to train the model
 
-def contruct_data_for_model(district_file='district_mapping.csv', station_code_file='station_code.csv', allocation_file='allocation_data.csv'):
+def contruct_data_for_model(district_file='district_mapping.csv', station_code_file='station_code.csv', allocation_file='allocation_data.csv', swe_station_file='swe_stations.csv'):
+    
     district_map = pd.read_csv(district_file)
     station = pd.read_csv(station_code_file)
+    swe_station = pd.read_csv(swe_station_file)
+
+    #This part is for SWE data
+    swe_all_df = pd.DataFrame()
+    for region in ['CS','NS','SS']:
+        swe_df = read_cdec_data(f'{region}_{HITORICAL_SWE_FILE}', cutting_off_month=6)
+        swe_df['SWE Region'] = region
+        swe_all_df = pd.concat([swe_all_df, swe_df])
+
+    df_swe_temp = pd.DataFrame()
+    for _, row in district_map.iterrows():
+        regions = [region.strip() for region in row['SWE Region'].strip().split(',')]
+        all_related_swe_stations = swe_station[swe_station['SWE Region'].isin(regions)]['Stations'].values
+        temp = []
+        for l in all_related_swe_stations:
+            temp += l.split(',')
+        df_swe_temp = pd.concat([df_swe_temp, construct_features(row['Irrigation District'], temp, swe_all_df)])
+
+    df_swe_temp['Year'] = df_swe_temp['seasonal_year']
+    df_swe_temp.drop(columns='seasonal_year', inplace=True)
+    df_swe_temp['temp'] = df_swe_temp['District'] + '_' + df_swe_temp['Year'].astype(str)
+    
+
+    #This part is for water storage data
     station_mapping = dict(zip(station['Station Name'],station['Station Code']))
     district_map['Res_Code'] = district_map.apply(lambda row: map_reservior_to_code(row['Reservoir'], station_mapping), axis=1)
 
@@ -95,10 +120,10 @@ def contruct_data_for_model(district_file='district_mapping.csv', station_code_f
         all_allocation_mapping.update(label_data[['temp',district]].set_index('temp').to_dict()[district])
     train_df['allocation'] = train_df['temp'].map(all_allocation_mapping)
 
-    df_water_daily = read_historical_water_data(HISTORICAL_DAILY_FILE)
+    df_water_daily = read_cdec_data(HISTORICAL_DAILY_WATER_FILE)
 
     #Add the info for the missing year for daily CFW
-    df_water_monthly = read_historical_water_data(HISTORICAL_MONTHLY_FILE) # Will use this for CFW data < 2022 only
+    df_water_monthly = read_cdec_data(HISTORICAL_MONTHLY_WATER_FILE) # Will use this for CFW data < 2022 only
     cfw_monthly = df_water_monthly[(df_water_monthly['stationId'] == 'CFW') & (df_water_monthly['date'].dt.date < datetime.date(2021,9,1))]
     all_train_data = pd.concat([df_water_daily, cfw_monthly])
 
@@ -110,10 +135,17 @@ def contruct_data_for_model(district_file='district_mapping.csv', station_code_f
     df_water_temp['Year'] = df_water_temp['seasonal_year']
     df_water_temp.drop(columns='seasonal_year', inplace=True)
     df_water_temp['temp'] = df_water_temp['District'] + '_' + df_water_temp['Year'].astype(str)
+
     train_df = train_df.merge(df_water_temp, on='temp', how='left', suffixes=('','_'))
     train_df.drop(train_df.filter(regex='_$').columns, axis=1, inplace=True)
+
+    train_df = train_df.merge(df_swe_temp, on='temp', how='left', suffixes=('','_swe'))
+    train_df.drop(columns=['District_swe','Year_swe'], inplace=True)
+
     train_df.drop(columns=['temp'], inplace=True)
     return train_df.dropna(subset=['allocation'])
+
+
 
 
 def train_model(train_df):

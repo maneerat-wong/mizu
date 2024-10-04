@@ -44,7 +44,7 @@ def get_historical_water_from_all_station(dur_code='D', station_code_file='stati
         json.dump(all_water_data, f, ensure_ascii=False)
 
 
-def get_swe_training_data(dur_code='D', sensor_num=3, station_code_file='swe_stations.csv'):
+def get_swe_training_data(dur_code='D', sensor_num=3, station_code_file='swe_stations.csv', filename ='training_data_swe.json'):
     """Get the Snow Water Equivalent for three regions (North, Central, South)
 
     Args:
@@ -53,7 +53,7 @@ def get_swe_training_data(dur_code='D', sensor_num=3, station_code_file='swe_sta
     swe_stations = pd.read_csv(station_code_file)
     for _, row in swe_stations.iterrows():
         swe_json = get_json_from_cdec(row['Stations'], TRAINING_DATA_START_DATE, TRAINING_DATA_END_DATE, dur_code, sensor_num)
-        with open(f'{row['SWE Region']}_training_data_swe.json', 'w', encoding='utf-8') as f:
+        with open(f'{row['SWE Region']}_{filename}', 'w', encoding='utf-8') as f:
             json.dump(swe_json, f, ensure_ascii=False)
 
 
