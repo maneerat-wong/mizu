@@ -70,7 +70,7 @@ def construct_features(district, resorvoir_list, df_water):
 
 #Problem #1: CFW Daily info doesn't have the data before 2021, therefore, will use the monthly data for the missing one to train the model
 
-def contruct_data_for_model(district_file='district_mapping.csv', station_code_file='station_code.csv', allocation_file='allocation_data.csv', swe_station_file='swe_stations.csv'):
+def construct_data_for_model(district_file='district_mapping.csv', station_code_file='station_code.csv', allocation_file='allocation_data.csv', swe_station_file='swe_stations.csv'):
     
     district_map = pd.read_csv(district_file)
     station = pd.read_csv(station_code_file)
@@ -136,16 +136,16 @@ def contruct_data_for_model(district_file='district_mapping.csv', station_code_f
     df_water_temp.drop(columns='seasonal_year', inplace=True)
     df_water_temp['temp'] = df_water_temp['District'] + '_' + df_water_temp['Year'].astype(str)
 
+    #water data
     train_df = train_df.merge(df_water_temp, on='temp', how='left', suffixes=('','_'))
     train_df.drop(train_df.filter(regex='_$').columns, axis=1, inplace=True)
 
+    #Combine SWE data with water data
     train_df = train_df.merge(df_swe_temp, on='temp', how='left', suffixes=('','_swe'))
     train_df.drop(columns=['District_swe','Year_swe'], inplace=True)
 
     train_df.drop(columns=['temp'], inplace=True)
     return train_df.dropna(subset=['allocation'])
-
-
 
 
 def train_model(train_df):
@@ -165,8 +165,8 @@ def train_model(train_df):
     folds = KFold(n_splits = 5, shuffle = True, random_state = 100)
     random_search = RandomizedSearchCV(xgb.XGBRegressor(enable_categorical='True'), param_distributions=params, scoring='r2', cv=folds)
     random_search.fit(train_X, train_y)
-
     print("Best Parameters found: ", random_search.best_params_)
+    
     model = xgb.XGBRegressor(enable_categorical='True', **random_search.best_params_)
     model.fit(train_X, train_y)
     scores = cross_val_score(model, train_X, train_y, scoring='r2', cv=folds) 
