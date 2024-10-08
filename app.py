@@ -9,6 +9,7 @@ SEASONAL_YEAR = today_date.year + 1 if today_date.month >= 6 else today_date.yea
 y, score = predict()
 
 st.title(f"Water Allocation Prediction for {SEASONAL_YEAR} summer season")
+st.text(f"The prediction is using the data from {today_date}")
 
 clicked = st.button("Run the model")
 if clicked:

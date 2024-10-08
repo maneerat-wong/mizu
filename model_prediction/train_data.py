@@ -58,7 +58,7 @@ def construct_features_daily(district, resorvoir_list, selected_date_df):
 
 
 #Known issue : CFW Daily info doesn't have the data before 2021, therefore, will use the monthly data for the missing one to train the model
-def construct_data_for_daily_model(selected_date, selected_month, district_file='district_mapping.csv', station_code_file='station_code.csv', allocation_file='allocation_data.csv', swe_station_file='swe_stations.csv'):
+def construct_data_for_daily_model(selected_date, selected_month, district_file='district_mapping.csv', station_code_file='station_code.csv', allocation_file='Allocation_data.csv', swe_station_file='swe_stations.csv'):
 
     district_map = pd.read_csv(district_file)
     station = pd.read_csv(station_code_file)
@@ -158,7 +158,7 @@ def train_model(train_df):
     folds = KFold(n_splits = 5, shuffle = True, random_state = 100)
     random_search = RandomizedSearchCV(xgb.XGBRegressor(enable_categorical='True'), param_distributions=params, scoring='r2', cv=folds)
     random_search.fit(train_X, train_y)
-    
+
     model = xgb.XGBRegressor(enable_categorical='True', **random_search.best_params_)
     model = xgb.XGBRegressor(enable_categorical='True')
     model.fit(train_X, train_y)
