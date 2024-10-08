@@ -44,34 +44,22 @@ def flatten_multiindex(multi_index_df):
     return multi_index_df
 
 
-def construct_features(district, resorvoir_list, df_water):
-    selected_df = df_water[df_water['stationId'].isin(resorvoir_list)]
-    selected_df['month'] = selected_df['date'].dt.month
-
-    summary_by_month = selected_df.groupby(['stationId','seasonal_year','month'],as_index=False).agg({'value':['count','mean','min','max']})
-    summary_by_month = flatten_multiindex(summary_by_month)
-
-    yearly_by_station = summary_by_month.groupby(['stationId','seasonal_year'], as_index=False).agg({'month':'count','value_count':'sum','value_mean':'mean','value_min':'min','value_max':'max'})
-    yearly = yearly_by_station.groupby('seasonal_year',as_index=False).agg({'month':'max',
-                                                                      'value_count':'mean',
-                                                                      'value_mean':'mean',
-                                                                      'value_min':'min',
-                                                                      'value_max':'max',
+def construct_features_daily(district, resorvoir_list, selected_date_df):
+    selected_df = selected_date_df[selected_date_df['stationId'].isin(resorvoir_list)]
+    yearly = selected_df.groupby('seasonal_year',as_index=False).agg({'value':['mean','min','max'],
                                                                       'stationId':'count'})
-
-    yearly = yearly.rename(columns={'month':'no_months',
-                           'value_count':'total_no_days_available',
-                           'stationId':'no_stations'})
+    yearly = flatten_multiindex(yearly)
+    yearly = yearly.rename(columns={'stationId':'no_stations'})
     yearly['change_in_a_year_mean'] = yearly['value_mean'].diff().fillna(0)
     yearly['change_in_a_year_min'] = yearly['value_min'].diff().fillna(0)
     yearly['change_in_a_year_max'] = yearly['value_max'].diff().fillna(0)
     yearly['District'] = district
     return yearly
 
-#Problem #1: CFW Daily info doesn't have the data before 2021, therefore, will use the monthly data for the missing one to train the model
 
-def construct_data_for_model(district_file='district_mapping.csv', station_code_file='station_code.csv', allocation_file='allocation_data.csv', swe_station_file='swe_stations.csv'):
-    
+#Known issue : CFW Daily info doesn't have the data before 2021, therefore, will use the monthly data for the missing one to train the model
+def construct_data_for_daily_model(selected_date, selected_month, district_file='district_mapping.csv', station_code_file='station_code.csv', allocation_file='allocation_data.csv', swe_station_file='swe_stations.csv'):
+
     district_map = pd.read_csv(district_file)
     station = pd.read_csv(station_code_file)
     swe_station = pd.read_csv(swe_station_file)
@@ -83,6 +71,8 @@ def construct_data_for_model(district_file='district_mapping.csv', station_code_
         swe_df['SWE Region'] = region
         swe_all_df = pd.concat([swe_all_df, swe_df])
 
+    selected_swe_df = swe_all_df[((swe_all_df.date.dt.month == selected_month) & (swe_all_df.date.dt.day == selected_date))]
+
     df_swe_temp = pd.DataFrame()
     for _, row in district_map.iterrows():
         regions = [region.strip() for region in row['SWE Region'].strip().split(',')]
@@ -90,7 +80,7 @@ def construct_data_for_model(district_file='district_mapping.csv', station_code_
         temp = []
         for l in all_related_swe_stations:
             temp += l.split(',')
-        df_swe_temp = pd.concat([df_swe_temp, construct_features(row['Irrigation District'], temp, swe_all_df)])
+        df_swe_temp = pd.concat([df_swe_temp, construct_features_daily(row['Irrigation District'], temp, selected_swe_df)])
 
     df_swe_temp['Year'] = df_swe_temp['seasonal_year']
     df_swe_temp.drop(columns='seasonal_year', inplace=True)
@@ -104,14 +94,13 @@ def construct_data_for_model(district_file='district_mapping.csv', station_code_
     label_data = pd.read_csv(allocation_file)
     district_code_mapping = dict(zip(district_map['Irrigation District'], district_map['Res_Code']))
     all_district = list(district_code_mapping)
-   
     train_data = []
 
     for district in all_district:
         for year in label_data['Year']:
             train_data.append([district, year])
     train_df = pd.DataFrame(train_data, columns=['District','Year'])
-    
+   
     #only use for mapping allocation
     train_df['temp'] = train_df['District'] + '_' + train_df['Year'].astype(str)
     all_allocation_mapping = {}
@@ -125,12 +114,16 @@ def construct_data_for_model(district_file='district_mapping.csv', station_code_
     #Add the info for the missing year for daily CFW
     df_water_monthly = read_cdec_data(HISTORICAL_MONTHLY_WATER_FILE) # Will use this for CFW data < 2022 only
     cfw_monthly = df_water_monthly[(df_water_monthly['stationId'] == 'CFW') & (df_water_monthly['date'].dt.date < datetime.date(2021,9,1))]
+    if selected_date != 1:
+        cfw_monthly['date'] = cfw_monthly['date'].apply(lambda x: x.replace(day=selected_date))
+    
     all_train_data = pd.concat([df_water_daily, cfw_monthly])
 
+    selected_date_df = all_train_data[((all_train_data.date.dt.month == selected_month) & (all_train_data.date.dt.day == selected_date))]
     df_water_temp = pd.DataFrame()
     for k,v in district_code_mapping.items():
         res = v.split(',')
-        df_water_temp = pd.concat([df_water_temp, construct_features(k, res, all_train_data)])
+        df_water_temp = pd.concat([df_water_temp, construct_features_daily(k, res, selected_date_df)])
 
     df_water_temp['Year'] = df_water_temp['seasonal_year']
     df_water_temp.drop(columns='seasonal_year', inplace=True)
@@ -145,8 +138,8 @@ def construct_data_for_model(district_file='district_mapping.csv', station_code_
     train_df.drop(columns=['District_swe','Year_swe'], inplace=True)
 
     train_df.drop(columns=['temp'], inplace=True)
-    return train_df.dropna(subset=['allocation'])
-
+    train_df = train_df.dropna(subset=['allocation'])
+    return train_df
 
 def train_model(train_df):
     y = train_df['allocation']
@@ -165,13 +158,17 @@ def train_model(train_df):
     folds = KFold(n_splits = 5, shuffle = True, random_state = 100)
     random_search = RandomizedSearchCV(xgb.XGBRegressor(enable_categorical='True'), param_distributions=params, scoring='r2', cv=folds)
     random_search.fit(train_X, train_y)
-    print("Best Parameters found: ", random_search.best_params_)
     
     model = xgb.XGBRegressor(enable_categorical='True', **random_search.best_params_)
+    model = xgb.XGBRegressor(enable_categorical='True')
     model.fit(train_X, train_y)
-    scores = cross_val_score(model, train_X, train_y, scoring='r2', cv=folds) 
+    # scores = cross_val_score(model, train_X, train_y, scoring='r2', cv=folds) 
     y_predict = model.predict(test_X)
     r2 = r2_score(test_y, y_predict)
+    # train_score = scores.mean()
+    test_score = r2
+    print(f"r2 score on test dateset : {test_score}")
+    #model.save_model(MODEL_FILENAME)
+    return model, test_score
     
-    print(f"train score :{scores.mean()}, r2 score on test dateset : {r2}")
-    model.save_model(MODEL_FILENAME)
+    
