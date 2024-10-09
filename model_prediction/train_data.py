@@ -146,6 +146,7 @@ def train_model(train_df):
     X = train_df.drop(columns='allocation')
     X['District'] = X['District'].astype('category')
     train_X, test_X, train_y, test_y = train_test_split(X, y, test_size=0.2, random_state=65)
+
     params = {
         'min_child_weight': [1, 5, 10],
         'gamma': [0.5, 1, 1.5, 2, 5],
@@ -155,14 +156,15 @@ def train_model(train_df):
         "learning_rate": [0.01, 0.05, 0.10]
         }
     
-    folds = KFold(n_splits = 5, shuffle = True, random_state = 100)
-    random_search = RandomizedSearchCV(xgb.XGBRegressor(enable_categorical='True'), param_distributions=params, scoring='r2', cv=folds)
-    random_search.fit(train_X, train_y)
+    #This part is for model tuning but it will take a while so I will comment this out for the time being
+    #folds = KFold(n_splits = 5, shuffle = True, random_state = 100)
+    #random_search = RandomizedSearchCV(xgb.XGBRegressor(enable_categorical='True'), param_distributions=params, scoring='r2', cv=folds)
+    #random_search.fit(train_X, train_y)
 
-    model = xgb.XGBRegressor(enable_categorical='True', **random_search.best_params_)
+    #model = xgb.XGBRegressor(enable_categorical='True', **random_search.best_params_)
     model = xgb.XGBRegressor(enable_categorical='True')
     model.fit(train_X, train_y)
-    # scores = cross_val_score(model, train_X, train_y, scoring='r2', cv=folds) 
+    #scores = cross_val_score(model, train_X, train_y, scoring='r2', cv=folds) 
     y_predict = model.predict(test_X)
     r2 = r2_score(test_y, y_predict)
     # train_score = scores.mean()

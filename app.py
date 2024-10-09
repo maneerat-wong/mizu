@@ -10,7 +10,7 @@ st.title(f"Water Allocation Prediction for {SEASONAL_YEAR} summer season")
 
 clicked = st.button("Run the model")
 if clicked:
-    with st.spinner('Running the model'):
+    with st.spinner('Running the model... This may take a while'):
         model, score = train_daily_model()
         y = predict(model)
     st.text(f"The prediction is using the data from {today_date}")
