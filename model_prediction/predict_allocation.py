@@ -69,13 +69,12 @@ def prep_new_data(selected_date, selected_month):
     
     return predict_data.reset_index(drop=True)
 
-def train_model():
+def train_daily_model():
     train_df = construct_data_for_daily_model(selected_date, selected_month)
     return train_model(train_df)
 
 
 def predict(model):
-
     feature_order= model.get_booster().feature_names
     get_water_data_from_all_station(start_date=starting_date_of_2025, end_date=today_date.strftime('%Y-%m-%d'), filename=current_data_filename)
     get_swe_data(start_date=starting_date_of_2025, end_date=today_date.strftime('%Y-%m-%d'), filename=current_swe_filename)
@@ -84,4 +83,4 @@ def predict(model):
     y_predict = model.predict(X_today[feature_order])    
     y = pd.DataFrame(y_predict, columns=['Water Allocation'])
     y['District'] = X_today['District']
-    return y[['District','Water Allocation']], score
+    return y[['District','Water Allocation']]

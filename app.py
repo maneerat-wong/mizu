@@ -5,9 +5,6 @@ from model_prediction.predict_allocation import train_daily_model, predict
 
 today_date = datetime.date.today()
 SEASONAL_YEAR = today_date.year + 1 if today_date.month >= 6 else today_date.year
-train_model_text = 'Getting the model for today'
-my_bar = st.progress(0, text=train_model_text)
-predict_text = 'Predicting the number for today'
 
 st.title(f"Water Allocation Prediction for {SEASONAL_YEAR} summer season")
 
