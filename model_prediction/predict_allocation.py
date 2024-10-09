@@ -8,8 +8,8 @@ import datetime
 model_filename = 'predict_allocation.model'
 current_data_filename = 'current_water_data_all_station.json'
 current_swe_filename = 'current_swe_data_all_station.json'
-starting_date_of_2025 = '2023-06-01'
-today_date = datetime.date.today()
+starting_date_of_2025 = '2023-01-01'
+today_date = datetime.date.today() - datetime.timedelta(days=1)
 selected_date = today_date.day
 selected_month = today_date.month
 district_file='district_mapping.csv'
@@ -71,7 +71,8 @@ def prep_new_data(selected_date, selected_month):
 
 def train_daily_model():
     train_df = construct_data_for_daily_model(selected_date, selected_month)
-    return train_model(train_df)
+    model, score = train_model(train_df)
+    return model, score
 
 
 def predict(model):
