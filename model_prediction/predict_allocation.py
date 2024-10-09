@@ -9,14 +9,9 @@ model_filename = 'predict_allocation.model'
 current_data_filename = 'current_water_data_all_station.json'
 current_swe_filename = 'current_swe_data_all_station.json'
 starting_date_of_2025 = '2023-01-01'
-today_date = datetime.date.today() - datetime.timedelta(days=1)
-selected_date = today_date.day
-selected_month = today_date.month
 district_file='district_mapping.csv'
 station_code_file='station_code.csv'
 swe_station_file='swe_stations.csv'
-
-SEASONAL_YEAR = today_date.year + 1 if today_date.month >= 6 else today_date.year
 
 
 def load_model():
@@ -24,7 +19,10 @@ def load_model():
     model.load_model(model_filename)  
     return model
 
-def prep_new_data(selected_date, selected_month):
+def prep_new_data(data_date):
+    selected_date = data_date.day
+    selected_month = data_date.month
+    seasonal_year = data_date.year + 1 if data_date.month >= 6 else data_date.year
     district_map = pd.read_csv(district_file)
     station = pd.read_csv(station_code_file)
     station_mapping = dict(zip(station['Station Name'],station['Station Code']))
@@ -61,25 +59,27 @@ def prep_new_data(selected_date, selected_month):
         res = v.split(',')
         df_water_temp = pd.concat([df_water_temp, construct_features_daily(k, res, selected_water_df)])
     df_water_temp['Year'] = df_water_temp['seasonal_year']
-    predict_data = df_water_temp[df_water_temp['Year'] == SEASONAL_YEAR]
+    predict_data = df_water_temp[df_water_temp['Year'] == seasonal_year]
 
     #Combine SWE data with water data
-    predict_data = predict_data.merge(df_swe_temp[df_swe_temp['Year'] == SEASONAL_YEAR], on='District', how='left', suffixes=('','_swe'))
+    predict_data = predict_data.merge(df_swe_temp[df_swe_temp['Year'] == seasonal_year], on='District', how='left', suffixes=('','_swe'))
     predict_data.drop(columns=['Year_swe','temp','seasonal_year'], inplace=True)
     
     return predict_data.reset_index(drop=True)
 
-def train_daily_model():
+def train_daily_model(data_date):
+    selected_date = data_date.day
+    selected_month = data_date.month
     train_df = construct_data_for_daily_model(selected_date, selected_month)
     model, score = train_model(train_df)
     return model, score
 
 
-def predict(model):
+def predict(model, data_date):
     feature_order= model.get_booster().feature_names
-    get_water_data_from_all_station(start_date=starting_date_of_2025, end_date=today_date.strftime('%Y-%m-%d'), filename=current_data_filename)
-    get_swe_data(start_date=starting_date_of_2025, end_date=today_date.strftime('%Y-%m-%d'), filename=current_swe_filename)
-    X_today = prep_new_data(selected_date, selected_month)
+    get_water_data_from_all_station(start_date=starting_date_of_2025, end_date=data_date.strftime('%Y-%m-%d'), filename=current_data_filename)
+    get_swe_data(start_date=starting_date_of_2025, end_date=data_date.strftime('%Y-%m-%d'), filename=current_swe_filename)
+    X_today = prep_new_data(data_date)
     X_today['District'] = X_today['District'].astype('category')
     y_predict = model.predict(X_today[feature_order])    
     y = pd.DataFrame(y_predict, columns=['Water Allocation'])
