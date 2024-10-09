@@ -15,5 +15,6 @@ if clicked:
     with st.spinner(f'Running the model for {data_date}... This may take a while'):
         model, score = train_daily_model(data_date)
         y = predict(model, data_date)
-    st.text(f"The prediction is using the data from end of {data_date} and the confidence level is {(score*100):.2f}%")
     st.dataframe(y, hide_index=True)
+    st.text(f"The prediction is using the data from end of {data_date} and the confidence level is {(score*100):.2f}%")
+    
