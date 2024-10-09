@@ -10,11 +10,14 @@ current_data_filename = 'current_water_data_all_station.json'
 current_swe_filename = 'current_swe_data_all_station.json'
 starting_date_of_2025 = '2023-06-01'
 today_date = datetime.date.today()
+selected_date = today_date.day
+selected_month = today_date.month
 district_file='district_mapping.csv'
 station_code_file='station_code.csv'
 swe_station_file='swe_stations.csv'
 
 SEASONAL_YEAR = today_date.year + 1 if today_date.month >= 6 else today_date.year
+
 
 def load_model():
     model = xgb.XGBRegressor()
@@ -66,17 +69,16 @@ def prep_new_data(selected_date, selected_month):
     
     return predict_data.reset_index(drop=True)
 
-def predict():
-    selected_date = today_date.day
-    selected_month = today_date.month
-
+def train_model():
     train_df = construct_data_for_daily_model(selected_date, selected_month)
-    model, score = train_model(train_df)
-    feature_order= model.get_booster().feature_names
+    return train_model(train_df)
 
+
+def predict(model):
+
+    feature_order= model.get_booster().feature_names
     get_water_data_from_all_station(start_date=starting_date_of_2025, end_date=today_date.strftime('%Y-%m-%d'), filename=current_data_filename)
     get_swe_data(start_date=starting_date_of_2025, end_date=today_date.strftime('%Y-%m-%d'), filename=current_swe_filename)
-    
     X_today = prep_new_data(selected_date, selected_month)
     X_today['District'] = X_today['District'].astype('category')
     y_predict = model.predict(X_today[feature_order])    
