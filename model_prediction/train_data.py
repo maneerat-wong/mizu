@@ -21,7 +21,7 @@ def read_cdec_data(train_file, cutting_off_month=6):
     df = pd.json_normalize(cdec_data)
     df['date'] = pd.to_datetime(df['date'])
 
-    #-9999 appear only 0.001 percent and those rows are unavailable so I will remove these data out
+    # -9999 appear only 0.001 percent and those rows are unavailable so I will remove these data out
     df = df[df['value'] != -9999]
     df['seasonal_year'] = np.where(df['date'].dt.month >= cutting_off_month, df['date'].dt.year + 1, df['date'].dt.year)
     return df
@@ -65,7 +65,7 @@ def construct_data_for_daily_model(selected_date, selected_month, district_file=
     station = pd.read_csv(station_code_file)
     swe_station = pd.read_csv(swe_station_file)
 
-    #This part is for SWE data
+    # This part is for SWE data
     swe_all_df = pd.DataFrame()
     for region in ['CS','NS','SS']:
         swe_df = read_cdec_data(f'{region}_{HITORICAL_SWE_FILE}', cutting_off_month=6)
@@ -87,8 +87,7 @@ def construct_data_for_daily_model(selected_date, selected_month, district_file=
     df_swe_temp.drop(columns='seasonal_year', inplace=True)
     df_swe_temp['temp'] = df_swe_temp['District'] + '_' + df_swe_temp['Year'].astype(str)
     
-
-    #This part is for water storage data
+    # This part is for water storage data
     station_mapping = dict(zip(station['Station Name'],station['Station Code']))
     district_map['Res_Code'] = district_map.apply(lambda row: map_reservior_to_code(row['Reservoir'], station_mapping), axis=1)
 
@@ -102,7 +101,7 @@ def construct_data_for_daily_model(selected_date, selected_month, district_file=
             train_data.append([district, year])
     train_df = pd.DataFrame(train_data, columns=['District','Year'])
    
-    #only use for mapping allocation
+    # only use for mapping allocation
     train_df['temp'] = train_df['District'] + '_' + train_df['Year'].astype(str)
     all_allocation_mapping = {}
     for district in all_district:
@@ -112,7 +111,7 @@ def construct_data_for_daily_model(selected_date, selected_month, district_file=
 
     df_water_daily = read_cdec_data(HISTORICAL_DAILY_WATER_FILE)
 
-    #Add the info for the missing year for daily CFW, DRE, MCS, MDO
+    # Add the info for the missing year for daily CFW, DRE, MCS, MDO
     df_water_monthly = read_cdec_data(HISTORICAL_MONTHLY_WATER_FILE) # Will use this for CFW data < 2022 only
     cfw_monthly = df_water_monthly[(df_water_monthly['date'].dt.date < datetime.date(2021,9,1))]
     if selected_date != 1:
@@ -130,11 +129,11 @@ def construct_data_for_daily_model(selected_date, selected_month, district_file=
     df_water_temp.drop(columns='seasonal_year', inplace=True)
     df_water_temp['temp'] = df_water_temp['District'] + '_' + df_water_temp['Year'].astype(str)
 
-    #water data
+    # water data
     train_df = train_df.merge(df_water_temp, on='temp', how='left', suffixes=('','_'))
     train_df.drop(train_df.filter(regex='_$').columns, axis=1, inplace=True)
 
-    #Combine SWE data with water data
+    # Combine SWE data with water data
     train_df = train_df.merge(df_swe_temp, on='temp', how='left', suffixes=('','_swe'))
     train_df.drop(columns=['District_swe','Year_swe'], inplace=True)
 
@@ -154,22 +153,23 @@ def train_model(train_df):
     X = train_df.drop(columns='allocation')
     X['District'] = X['District'].astype('category')
     train_X, test_X, train_y, test_y = train_test_split(X, y, test_size=0.2, random_state=65)
-
-    params = {
-        'min_child_weight': [1, 5, 10],
-        'gamma': [0.5, 1, 1.5, 2, 5],
-        'subsample': [0.6, 0.8, 1.0],
-        'colsample_bytree': [0.6, 0.8, 1.0],
-        'max_depth': [3, 4, 5],
-        "learning_rate": [0.01, 0.05, 0.10]
-        }
     
-    #This part is for model tuning but it takes a while so I will comment this out for the time being
+    ### This part is for model tuning but it takes a while on CPU so I will omit this for the time being
+
+    # params = {
+    #     'min_child_weight': [1, 5, 10],
+    #     'gamma': [0.5, 1, 1.5, 2, 5],
+    #     'subsample': [0.6, 0.8, 1.0],
+    #     'colsample_bytree': [0.6, 0.8, 1.0],
+    #     'max_depth': [3, 4, 5],
+    #     "learning_rate": [0.01, 0.05, 0.10]
+    #     }
     #folds = KFold(n_splits = 5, shuffle = True, random_state = 100)
     #random_search = RandomizedSearchCV(xgb.XGBRegressor(enable_categorical='True'), param_distributions=params, scoring='r2', cv=folds)
     #random_search.fit(train_X, train_y)
-
     #model = xgb.XGBRegressor(enable_categorical='True', **random_search.best_params_)
+
+
     model = xgb.XGBRegressor(enable_categorical='True')
     model.fit(train_X, train_y)
     #scores = cross_val_score(model, train_X, train_y, scoring='r2', cv=folds) 
@@ -177,11 +177,7 @@ def train_model(train_df):
     r2 = r2_score(test_y, y_predict)
     error_score = cal_error_score(test_y, y_predict)
     mse = mean_squared_error(test_y, y_predict)
-    # train_score = scores.mean()
-    test_score = r2
-    print(f"r2 score on test dateset : {test_score}")
-    #model.save_model(MODEL_FILENAME)
-    return model, test_score, error_score, mse
+    return model, r2, error_score, mse
 
 
 

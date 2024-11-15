@@ -15,6 +15,14 @@ swe_station_file='swe_stations.csv'
 
 
 def prep_new_data(data_date):
+    """Prepare the new downloaded data to use for the prediction
+
+    Args:
+        data_date (datetime): date of the data that we want to do the prediction
+
+    Returns:
+        DataFrame: the table of the data that we want to do the prediction with the same features as the training data
+    """
     selected_date = data_date.day
     selected_month = data_date.month
     seasonal_year = data_date.year + 1 if data_date.month >= 6 else data_date.year
@@ -63,6 +71,18 @@ def prep_new_data(data_date):
     return predict_data.reset_index(drop=True)
 
 def train_daily_model(data_date):
+    """Train the new model for a specific date
+
+    Args:
+        data_date (datetime): specific date that we want to train the data 
+                                e.g. if the input is 10 Nov then the funciton will train the model using only the data from 10 Nov in the past
+
+    Returns:
+        model: the model that will be used for the prediction
+        test_score : This is the R-square score from the test dataset
+        error_score : This is the customized metric that I use in order to reflex the accuracy more accurately. This is also from the test data set
+        mse : Mean Square Error from the test data
+    """
     selected_date = data_date.day
     selected_month = data_date.month
     train_df = construct_data_for_daily_model(selected_date, selected_month)
@@ -71,6 +91,15 @@ def train_daily_model(data_date):
 
 
 def predict(model, data_date):
+    """Predict the water allocation
+
+    Args:
+        model (model): daily model for the prediction
+        data_date (datetime): specific date that we will use for the prediction
+
+    Returns:
+        DataFrame: the table of the district and water allocation for each district
+    """
     feature_order= model.get_booster().feature_names
     get_water_data_from_all_station(start_date=starting_date_of_2025, end_date=data_date.strftime('%Y-%m-%d'), filename=current_data_filename)
     get_swe_data(start_date=starting_date_of_2025, end_date=data_date.strftime('%Y-%m-%d'), filename=current_swe_filename)
