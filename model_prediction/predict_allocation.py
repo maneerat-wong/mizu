@@ -14,11 +14,6 @@ station_code_file='station_code.csv'
 swe_station_file='swe_stations.csv'
 
 
-def load_model():
-    model = xgb.XGBRegressor()
-    model.load_model(model_filename)  
-    return model
-
 def prep_new_data(data_date):
     selected_date = data_date.day
     selected_month = data_date.month
@@ -71,8 +66,8 @@ def train_daily_model(data_date):
     selected_date = data_date.day
     selected_month = data_date.month
     train_df = construct_data_for_daily_model(selected_date, selected_month)
-    model, score = train_model(train_df)
-    return model, score
+    model, test_score, error_score, mse = train_model(train_df)
+    return model, test_score, error_score, mse
 
 
 def predict(model, data_date):

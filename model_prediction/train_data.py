@@ -7,6 +7,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import KFold
 from sklearn.model_selection import RandomizedSearchCV
+from sklearn.metrics import mean_squared_error
 from sklearn.metrics import r2_score
 
 MODEL_FILENAME = 'predict_allocation.model'
@@ -111,9 +112,9 @@ def construct_data_for_daily_model(selected_date, selected_month, district_file=
 
     df_water_daily = read_cdec_data(HISTORICAL_DAILY_WATER_FILE)
 
-    #Add the info for the missing year for daily CFW
+    #Add the info for the missing year for daily CFW, DRE, MCS, MDO
     df_water_monthly = read_cdec_data(HISTORICAL_MONTHLY_WATER_FILE) # Will use this for CFW data < 2022 only
-    cfw_monthly = df_water_monthly[(df_water_monthly['stationId'] == 'CFW') & (df_water_monthly['date'].dt.date < datetime.date(2021,9,1))]
+    cfw_monthly = df_water_monthly[(df_water_monthly['date'].dt.date < datetime.date(2021,9,1))]
     if selected_date != 1:
         cfw_monthly['date'] = cfw_monthly['date'].apply(lambda x: x.replace(day=selected_date))
     
@@ -141,6 +142,13 @@ def construct_data_for_daily_model(selected_date, selected_month, district_file=
     train_df = train_df.dropna(subset=['allocation'])
     return train_df
 
+def cal_error_score(y, y_predict):
+    y_temp = y.reset_index()
+    y_temp = y_temp[y_temp['allocation'] > 0]['allocation']
+    y_predict = y_predict[y_temp.index]
+    return (sum((((y_temp - y_predict)/y_temp) ** 2)) / len(y_temp)) ** 1/2
+
+
 def train_model(train_df):
     y = train_df['allocation']
     X = train_df.drop(columns='allocation')
@@ -156,7 +164,7 @@ def train_model(train_df):
         "learning_rate": [0.01, 0.05, 0.10]
         }
     
-    #This part is for model tuning but it will take a while so I will comment this out for the time being
+    #This part is for model tuning but it takes a while so I will comment this out for the time being
     #folds = KFold(n_splits = 5, shuffle = True, random_state = 100)
     #random_search = RandomizedSearchCV(xgb.XGBRegressor(enable_categorical='True'), param_distributions=params, scoring='r2', cv=folds)
     #random_search.fit(train_X, train_y)
@@ -167,10 +175,48 @@ def train_model(train_df):
     #scores = cross_val_score(model, train_X, train_y, scoring='r2', cv=folds) 
     y_predict = model.predict(test_X)
     r2 = r2_score(test_y, y_predict)
+    error_score = cal_error_score(test_y, y_predict)
+    mse = mean_squared_error(test_y, y_predict)
     # train_score = scores.mean()
     test_score = r2
     print(f"r2 score on test dateset : {test_score}")
     #model.save_model(MODEL_FILENAME)
-    return model, test_score
+    return model, test_score, error_score, mse
+
+
+
+
+######## This is only used for experimental/exploration only ####
+
+# def train_model_district(train_df):
+#     y = train_df['allocation']
+#     X = train_df.drop(columns=['allocation','District'])
+#     train_X, test_X, train_y, test_y = train_test_split(X, y, test_size=0.2, random_state=65)
+
+#     params = {
+#         'min_child_weight': [1, 5, 10],
+#         'gamma': [0.5, 1, 1.5, 2, 5],
+#         'subsample': [0.6, 0.8, 1.0],
+#         'colsample_bytree': [0.6, 0.8, 1.0],
+#         'max_depth': [3, 4, 5],
+#         "learning_rate": [0.01, 0.05, 0.10]
+#         }
     
+#     #This part is for model tuning but it will take a while so I will comment this out for the time being
+#     #folds = KFold(n_splits = 5, shuffle = True, random_state = 100)
+#     #random_search = RandomizedSearchCV(xgb.XGBRegressor(enable_categorical='True'), param_distributions=params, scoring='r2', cv=folds)
+#     #random_search.fit(train_X, train_y)
+
+#     model = xgb.XGBRegressor(enable_categorical='True')
+#     #model = xgb.XGBRegressor(enable_categorical='True', **random_search.best_params_)
+#     #model = DecisionTreeRegressor(max_depth=2)
+#     model.fit(train_X, train_y)
+#     #scores = cross_val_score(model, train_X, train_y, scoring='r2', cv=folds) 
+#     y_predict = model.predict(test_X)
+#     r2 = r2_score(test_y, y_predict)
+#     error_score = cal_error_score(test_y, y_predict)
+#     mse = mean_squared_error(test_y, y_predict)
+#     test_score = r2
+#     #model.save_model(MODEL_FILENAME)
+#     return model, test_score, error_score, mse
     

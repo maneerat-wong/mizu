@@ -16,5 +16,5 @@ if clicked:
         model, score = train_daily_model(data_date)
         y = predict(model, data_date)
     st.dataframe(y, hide_index=True)
-    st.text(f"The prediction is using the data from end of {data_date} and the confidence level is {(score*100):.2f}%")
+    st.text(f"The prediction is using the data from end of {data_date}")
     
