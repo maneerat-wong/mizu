@@ -1,3 +1,5 @@
+# This is the main file that is used to produce the frontend on the streamlit
+
 import streamlit as st
 import datetime
 import pytz

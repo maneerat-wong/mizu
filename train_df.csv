@@ -1,4 +1,4 @@
-District,Year,allocation,no_reservior,value_mean,value_min,value_max,change_in_a_year_mean,change_in_a_year_min,change_in_a_year_max
+District,Year,allocation,no_reservoir,value_mean,value_min,value_max,change_in_a_year_mean,change_in_a_year_min,change_in_a_year_max
 Del Puerto,1990,1.6,6,802560.7346491228,137235.0,1975719.0,-92774.81006632431,-2405.0,-101729.0
 Del Puerto,1991,0.8,6,603909.8019525802,154275.0,1669281.0,-198650.9326965426,17040.0,-306438.0
 Del Puerto,1992,0.8,6,622531.9060642093,162485.0,1986180.0,18622.104111629073,8210.0,316899.0

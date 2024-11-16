@@ -1,5 +1,5 @@
 from model_prediction.get_data import get_water_data_from_all_station, get_swe_data
-from model_prediction.train_data import map_reservior_to_code, construct_features_daily, read_cdec_data, construct_data_for_daily_model, train_model
+from model_prediction.train_data import map_reservoir_to_code, construct_features_daily, read_cdec_data, construct_data_for_daily_model, train_model
 
 import pandas as pd
 import xgboost as xgb
@@ -29,7 +29,7 @@ def prep_new_data(data_date):
     district_map = pd.read_csv(district_file)
     station = pd.read_csv(station_code_file)
     station_mapping = dict(zip(station['Station Name'],station['Station Code']))
-    district_map['Res_Code'] = district_map.apply(lambda row: map_reservior_to_code(row['Reservoir'], station_mapping), axis=1)
+    district_map['Res_Code'] = district_map.apply(lambda row: map_reservoir_to_code(row['Reservoir'], station_mapping), axis=1)
     district_code_mapping = dict(zip(district_map['Irrigation District'], district_map['Res_Code']))
     swe_station = pd.read_csv(swe_station_file)
 

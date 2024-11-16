@@ -16,6 +16,15 @@ HISTORICAL_MONTHLY_WATER_FILE = 'all_station_historical_water_M.json'
 HITORICAL_SWE_FILE = 'training_data_swe.json'
 
 def read_cdec_data(train_file, cutting_off_month=6):
+    """Read CDEC json file and clean the dataframe
+
+    Args:
+        train_file (str): name of the file that we downloaded from cdec website
+        cutting_off_month (int, optional): This is used to set the seasonal year. Defaults to 6.
+
+    Returns:
+        DataFrmae: dataframe of the data from CDEC with minimal cleaning
+    """
     with open(train_file, 'r') as file:
         cdec_data = json.load(file)
     df = pd.json_normalize(cdec_data)
@@ -27,14 +36,31 @@ def read_cdec_data(train_file, cutting_off_month=6):
     return df
     
 
-def map_reservior_to_code(reservior_list, station_mapping):
+def map_reservoir_to_code(reservoir_list, station_mapping):
+    """translate the reservoir name for each irrigation district with the code on CDEC website
+
+    Args:
+        reservoir_list (list): list of the reservoir for a specific district
+        station_mapping (dict): mapping between the reservoir name and the reservoir code based on CDEC website
+
+    Returns:
+        str: list of the reservoir code 
+    """
     res_code = []
-    for res in reservior_list.split(','):
+    for res in reservoir_list.split(','):
         res_code.append(station_mapping[res.strip()])
     return ",".join(res_code)
 
 
 def flatten_multiindex(multi_index_df):
+    """Flatten the multi index dataframe to single index
+
+    Args:
+        multi_index_df (DataFrame): Dataframe that contains multi index
+
+    Returns:
+        DataFrame: Flattened multi-index dataframe to the single index dataframe
+    """
     flat_cols = []
     for col in multi_index_df.columns:
         if col[1] == '':
@@ -46,6 +72,16 @@ def flatten_multiindex(multi_index_df):
 
 
 def construct_features_daily(district, resorvoir_list, selected_date_df):
+    """Add features to dataframe for the training/prediction
+
+    Args:
+        district (str): name of the irrigation district
+        resorvoir_list (list): list of the resorvoir 
+        selected_date_df (DataFrame): dataframe which contains only the data from a specific date
+
+    Returns:
+        DataFrame: Aggregated dataframe
+    """
     selected_df = selected_date_df[selected_date_df['stationId'].isin(resorvoir_list)]
     yearly = selected_df.groupby('seasonal_year',as_index=False).agg({'value':['mean','min','max'],
                                                                       'stationId':'count'})
@@ -61,6 +97,11 @@ def construct_features_daily(district, resorvoir_list, selected_date_df):
 #Known issue : CFW Daily info doesn't have the data before 2021, therefore, will use the monthly data for the missing one to train the model
 def construct_data_for_daily_model(selected_date, selected_month, district_file='district_mapping.csv', station_code_file='station_code.csv', allocation_file='Allocation_data.csv', swe_station_file='swe_stations.csv'):
 
+    """Construct the dataframe in order to train the model
+
+    Returns:
+        DataFrame: dataframe which is ready to be used for training
+    """
     district_map = pd.read_csv(district_file)
     station = pd.read_csv(station_code_file)
     swe_station = pd.read_csv(swe_station_file)
@@ -89,7 +130,7 @@ def construct_data_for_daily_model(selected_date, selected_month, district_file=
     
     # This part is for water storage data
     station_mapping = dict(zip(station['Station Name'],station['Station Code']))
-    district_map['Res_Code'] = district_map.apply(lambda row: map_reservior_to_code(row['Reservoir'], station_mapping), axis=1)
+    district_map['Res_Code'] = district_map.apply(lambda row: map_reservoir_to_code(row['Reservoir'], station_mapping), axis=1)
 
     label_data = pd.read_csv(allocation_file)
     district_code_mapping = dict(zip(district_map['Irrigation District'], district_map['Res_Code']))
@@ -142,6 +183,15 @@ def construct_data_for_daily_model(selected_date, selected_month, district_file=
     return train_df
 
 def cal_error_score(y, y_predict):
+    """Calculate the specific error score. The R-square is not a very good indication for the accuracy if the data is concentrated to only 1 point.
+
+    Args:
+        y (list): true label
+        y_predict (list): predicted label
+
+    Returns:
+        float: the error score 
+    """
     y_temp = y.reset_index()
     y_temp = y_temp[y_temp['allocation'] > 0]['allocation']
     y_predict = y_predict[y_temp.index]
@@ -149,6 +199,14 @@ def cal_error_score(y, y_predict):
 
 
 def train_model(train_df):
+    """Train the model to get the model for the prediction
+
+    Args:
+        train_df (DataFrame): Dataframe with features for the training
+
+    Returns:
+        model and scores
+    """
     y = train_df['allocation']
     X = train_df.drop(columns='allocation')
     X['District'] = X['District'].astype('category')
