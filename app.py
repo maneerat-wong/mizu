@@ -15,7 +15,7 @@ st.text(f'Today is {eastern_now.date()}')
 clicked = st.button("Run the model")
 if clicked:
     with st.spinner(f'Running the model for {data_date}... This may take a while'):
-        model, score = train_daily_model(data_date)
+        model, test_score, error_score, mse = train_daily_model(data_date)
         y = predict(model, data_date)
     st.dataframe(y, hide_index=True)
     st.text(f"The prediction is using the data from end of {data_date}")
